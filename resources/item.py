@@ -1,14 +1,16 @@
 import uuid
-from flask import request
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 from db import items
+from schemas import ItemSchema, ItemUpdateSchema
 
 blp = Blueprint("items", __name__, description="Operation on items")
 
 
 @blp.route("/item/<string:item_id>")
 class Item(MethodView):
+    # Main response, using ItemSchema
+    @blp.response(200, ItemSchema)
     def get(self, item_id):
         try:
             return items[item_id]
@@ -22,13 +24,9 @@ class Item(MethodView):
         except KeyError:
             abort(404, message="Item not found")
 
-    def put(self, item_id):
-        item_data = request.get_json()
-        if (
-                "price" not in item_data
-                or "name" not in item_data
-        ):
-            abort(400, message="Bad request. Ensure price, name are in JSON payload")
+    @blp.arguments(ItemUpdateSchema)
+    @blp.response(200, ItemSchema)
+    def put(self, item_data, item_id):  # Decorator argument (item_data) should always go after the root (self)
         try:
             item = items[item_id]
             item |= item_data  # New dictionary update syntax
@@ -39,18 +37,17 @@ class Item(MethodView):
 
 @blp.route("/item/")
 class ItemList(MethodView):
+    # As it can return many item schemas
+    @blp.response(200, ItemSchema(many=True))
     def get(self):
-        return {"items": list(items.values())}
+        return {"items": items.values()}
 
-    def post(self):
-        item_data = request.get_json()
-        # Validation if data exists
-        if (
-                "price" not in item_data
-                or "store_id" not in item_data
-                or "name" not in item_data
-        ):
-            abort(400, message="Bad request. Ensure price, store_id and name are in JSON payload")
+    # @blp.arguments - Validation of incoming data.
+    # Data that requestor sends, is validated against schema and then forwarded to post request as item_data argument.
+    @blp.arguments(ItemSchema)
+    @blp.response(201, ItemSchema)
+    def post(self, item_data):
+
         for item in items.values():
             if (
                     item_data["name"] == item["name"]
@@ -61,4 +58,5 @@ class ItemList(MethodView):
         item_id = uuid.uuid4().hex
         item = {**item_data, "id": item_id}
         items[item_id] = item
-        return item, 201
+
+        return item
