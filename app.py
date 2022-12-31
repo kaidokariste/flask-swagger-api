@@ -16,7 +16,7 @@ app.config["OPENAPI_SWAGGER_UI_URL"] = "https://cdn.jsdelivr.net/npm/swagger-ui-
 
 @app.route('/home')
 def get_docs():
-    return render_template('index.html')
+    return render_template('secondary_index.html')
 
 api = Api(app)
 
