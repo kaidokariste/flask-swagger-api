@@ -32,9 +32,11 @@ class Store(MethodView):
         else:
             store = StoreModel(id=store_id, **store_data)
 
-        db.session.add(store)
-        db.session.commit()
-
+        try:
+            db.session.add(store)
+            db.session.commit()
+        except SQLAlchemyError as e:
+            abort(500, message=str(e))
         return store
 
 @blp.route("/store")
