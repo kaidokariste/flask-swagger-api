@@ -1,6 +1,8 @@
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from flask_jwt_extended import jwt_required
+
 
 from db import db
 from models import CpiModel
@@ -12,6 +14,7 @@ blp = Blueprint("Consumer price index", __name__, description="Operation on Cons
 @blp.route("/cpi/")
 class CpiList(MethodView):
     # As it can return many item schemas
+    @jwt_required()
     @blp.response(200, CpiSchema(many=True))
     def get(self):
         """Get all monthly consumer price indexes (CPI) 1997=100
