@@ -1,7 +1,7 @@
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 from sqlalchemy.exc import SQLAlchemyError
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, get_jwt
 
 from db import db
 from models import ItemModel
@@ -21,8 +21,12 @@ class Item(MethodView):
         item = ItemModel.query.get_or_404(item_id)
         return item
 
+    # Here we are using JWT calims in delete endpoint.
     @jwt_required()
     def delete(self, item_id):
+        jwt = get_jwt()
+        if not jwt.get("is_admin"):
+            abort(401, message="Admin privilege required")
         item = ItemModel.query.get_or_404(item_id)
         db.session.delete(item)
         db.session.commit()
@@ -56,7 +60,7 @@ class ItemList(MethodView):
 
     # @blp.arguments - Validation of incoming data.
     # Data that requestor sends, is validated against schema and then forwarded to post request as item_data argument.
-    @jwt_required()  # Protect the endpoint
+    @jwt_required(fresh=True)  # Protect the endpoint. Reguire fresh access token
     @blp.arguments(ItemSchema)
     @blp.response(201, ItemSchema)
     def post(self, item_data):

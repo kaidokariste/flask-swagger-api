@@ -27,3 +27,13 @@ add security options right after path
             }
           },
 ```
+
+# Writing or print openapi doc
+
+```
+flask openapi write [--format=json|yaml] openapi.json
+```
+
+```
+flask openapi print [--format=json|yaml]
+```

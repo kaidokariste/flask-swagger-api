@@ -4,6 +4,7 @@ import secrets
 from flask import Flask, render_template, jsonify
 from flask_smorest import Api
 from flask_jwt_extended import JWTManager
+from flask_migrate import Migrate
 
 from db import db
 
@@ -12,6 +13,7 @@ from resources.store import blp as StoreBlueprint
 from resources.tag import blp as TagBlueprint
 from resources.cpi import blp as ThiBlueprint
 from resources.user import blp as UserBlueprint
+from blocklist import BLOCKLIST
 
 def register_blueprints(app):
     """Register Flask blueprints."""
@@ -46,6 +48,8 @@ def create_app(db_url=None):
     }
 
     db.init_app(app)
+    migrate = Migrate(app, db)
+
 
     @app.route('/home')
     def get_docs():
@@ -56,6 +60,27 @@ def create_app(db_url=None):
     # api.spec.options["security"] = [{"bearerAuth": []}] Makes
 
     jwt = JWTManager(app)
+
+    # Logout maanagement block.
+    @jwt.token_in_blocklist_loader
+    def check_if_token_in_blocklist(jwt_header, jwt_payload):
+        return jwt_payload["jti"] in BLOCKLIST
+
+    @jwt.revoked_token_loader
+    def revoked_token_callback(jwt_header, jwt_payload):
+        return (
+            jsonify({"message": "The token has revoked.", "error": "token_revoked"}),
+            401,
+        )
+
+
+    # Additional claims management. Identity is the same what we use for jwt composition (resources/user)
+    # In our example it was user.id. So here it checks if user id = 1 then adds that the user is admin.
+    @jwt.additional_claims_loader
+    def add_claims_to_jwt(identity):
+        if identity == 1:
+            return {"is_admin":True}
+        return {"is_admin":False}
 
     @jwt.expired_token_loader
     def expired_token_callback(jwt_header, jwt_payload):
@@ -85,8 +110,17 @@ def create_app(db_url=None):
             401,
         )
 
-    with app.app_context():
-        db.create_all()
+    @jwt.needs_fresh_token_loader
+    def token_not_fresh_callback(jwt_header, jwt_payload):
+        return (
+            jsonify(
+                {
+                    "description": "The token is not fresh.",
+                    "error": "fresh_token_required",
+                }
+            ),
+            401,
+        )
 
     api.register_blueprint(ItemBlueprint)
     api.register_blueprint(StoreBlueprint)
